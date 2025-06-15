@@ -1,26 +1,61 @@
-@import "tailwindcss";
+/* ▼▼▼ この下のコードを globals.css に貼り付けてください ▼▼▼ */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-sumi: #1C1C1C;
+  --color-koiai: #0F2540;
+  --color-shiraae: #F7F7F7;
+  --color-offwhite: #FFFFFF;
+  --color-chitosemidori: #316745;
+  --color-kakishibu: #9A5D3B;
+  --font-serif: 'Noto Serif JP', serif;
+  --font-sans: 'Noto Sans JP', sans-serif;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
 }
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+svg { stroke: var(--color-koiai); stroke-width: 1.5; transition: all 0.2s ease; }
+button:hover svg { stroke: var(--color-chitosemidori); }
+h2 { font-family: var(--font-serif); font-weight: 500; letter-spacing: 0.5px; color: var(--color-koiai); margin-top: 0; margin-bottom: var(--spacing-md); }
+h3 { font-family: var(--font-sans); font-weight: 500; letter-spacing: 0.3px; color: var(--color-koiai); margin-top: 0; margin-bottom: var(--spacing-sm); }
+body { font-family: var(--font-sans); margin: 0; height: 100vh; background-color: var(--color-shiraae); color: var(--color-sumi); overflow: hidden; }
+.modal { display: flex; position: fixed; z-index: 1001; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
+.modal.visible { opacity: 1; visibility: visible; }
+.modal-content { background-color: #fff; margin: 5% auto; padding: var(--spacing-xl); border-radius: 12px; width: 80%; max-width: 900px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12); text-align: center; transform: scale(0.95); transition: transform 0.3s ease; }
+.modal.visible .modal-content { transform: scale(1); }
+.modal-content h2 { margin-bottom: var(--spacing-lg); }
+.mode-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 25px; }
+.mode-card { padding: 20px 15px; background-color: #fff; border: 1px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; display: flex; flex-direction: column; align-items: flex-start; position: relative; overflow: hidden; text-align: left; }
+.mode-card:hover { border-color: #4285f4; background-color: #fafafa; }
+.mode-card h3 { margin: 10px 0; font-size: 1.2rem; font-weight: 600; }
+.mode-features { list-style-type: none; padding: 0; margin: 15px 0; text-align: left; }
+.mode-features li { margin: 10px 0; padding-left: 20px; position: relative; color: #555; font-size: 0.95rem; }
+.mode-features li:before { content: '✓'; position: absolute; left: 0; color: var(--color-koiai); }
+.mode-button-effect { margin-top: 15px; padding: 8px 15px; background-color: var(--color-koiai); color: white; border-radius: 20px; font-size: 0.9rem; opacity: 0; transform: translateY(5px); transition: all 0.3s ease; }
+.mode-card:hover .mode-button-effect { opacity: 1; transform: translateY(0); }
+.mode-card.recommended { border: 3px solid #4285f4; background-color: #f0f6ff; box-shadow: 0 4px 12px rgba(66, 133, 244, 0.15); }
+.recommended::before { content: '推奨'; position: absolute; top: 12px; right: 12px; background-color: #4285f4; color: white; padding: 3px 10px; border-radius: 4px; font-size: 0.75em; font-weight: bold; z-index: 1; }
+.app-layout { display: flex; height: 100vh; opacity: 0; transition: opacity 0.5s ease; }
+.app-layout.visible { opacity: 1; }
+.sidebar { flex: 0 0 250px; background-color: var(--color-offwhite); border-right: 1px solid #EAEAEA; padding: var(--spacing-md); overflow-y: auto; font-family: var(--font-sans); }
+.logo-area { text-align: center; margin-bottom: var(--spacing-xl); }
+.app-logo { font-family: var(--font-serif); font-size: 2rem; font-weight: 600; letter-spacing: 1px; margin: 0; color: var(--color-koiai); position: relative; padding-right: 8px; }
+.app-tagline { font-size: 0.9rem; color: #666; margin-left: var(--spacing-sm); font-weight: 400; position: relative; padding-left: 12px; border-left: 2px solid var(--color-chitosemidori); }
+.sidebar-section { margin-top: 20px; }
+.chat-pane { flex-grow: 1; display: flex; flex-direction: column; background-color: var(--color-offwhite); }
+#chat-header { padding: var(--spacing-md); border-bottom: 1px solid #EAEAEA; display: flex; justify-content: space-between; align-items: center; }
+.progress-container { display: flex; align-items: center; gap: var(--spacing-md); flex-grow: 1; }
+.progress-bar-container { height: 8px; flex-grow: 1; background-color: #EAEAEA; border-radius: 4px; overflow: hidden; }
+.progress-bar { width: 0%; height: 100%; background-color: var(--color-chitosemidori); transition: width 0.5s ease; }
+.progress-label { white-space: nowrap; font-weight: 500; }
+.progress-percentage { font-weight: 500; }
+#chat-display { flex-grow: 1; overflow-y: auto; padding: var(--spacing-lg); }
+.message { display: flex; gap: var(--spacing-md); margin-bottom: var(--spacing-lg); max-width: 80%; }
+.message.user { margin-left: auto; flex-direction: row-reverse; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; background-color: #EAEAEA; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.message .message-content { padding: var(--spacing-md); border-radius: 8px; background-color: var(--color-shiraae); }
+#message-input-area { display: flex; padding: var(--spacing-md); border-top: 1px solid #EAEAEA; }
+#message-input { flex-grow: 1; border: 1px solid #ccc; border-radius: 8px; padding: 8px; resize: none; }
+#send-button { background: var(--color-koiai); color: white; border: none; padding: 8px 16px; margin-left: 8px; border-radius: 8px; cursor: pointer; }
+li.completed { color: green; font-weight: bold; }
