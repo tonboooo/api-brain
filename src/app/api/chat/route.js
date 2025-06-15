@@ -1,22 +1,23 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// ↓↓↓↓ このコードをまるごとコピー＆ペーストしてください ↓↓↓↓
+
+import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { kv } from "@vercel/kv"; 
 
-// ▼▼▼【重要】ここにあなたのGemini APIキーを再度貼り付けてください▼▼▼
-const GEMINI_API_KEY = "AIzaSyBZi0IoquwfGPgKayuf7oMXtE6jWNGiDQc";
+// --- ここから設定 ---
 
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-// CORS許可証の設定 (変更なし)
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, x-session-id",
 };
 
-// サーバーのメモリ上に「マスタープラン」を保持
-let masterPlan = {
-  // (マスタープランの構造は前回と同じ)
-  "projectId": `project_${Date.now()}`,
+// 新しい会話が始まったときの「初期データ」のテンプレート
+const initialMasterPlan = {
   "agenda": {
     "1_purpose": {
       "title": "全体像・目的", "status": "pending",
@@ -33,107 +34,84 @@ let masterPlan = {
   }
 };
 
+// --- ここまで設定 ---
 
-// OPTIONSリクエストへの対応 (変更なし)
 export async function OPTIONS() {
   return new NextResponse(null, { headers: corsHeaders });
 }
 
-
 export async function POST(request) {
   try {
-    const body = await request.json();
-    // history, newMessageに加え、UIからクライアント情報を受け取る（将来的な拡張）
-    const { history, newMessage, clientInfo = { type: 'startup', goal: '新規事業開発' } } = body;
-    
-    // --- 【処理A】対話AIへの指示 (プロンプトv3.0適用) ---
-    const conversationalPrompt = `
-# 指示書: AIビジネスコンサルタント「AIDA」
-## あなたの役割
-あなたは、クライアントのビジネスを成功に導く、超一流のAIビジネスコンサルタント「AIDA」です。
-## あなたの行動原則
-1. ペルソナの適応: 以下の【クライアント情報】を深く理解し、あなたのペルソナと口調を最適化してください。
-   - startup の場合: 親しみやすく、伴走するパートナーのように。
-   - enterprise の場合: 礼儀正しく、信頼できる専門家として。
-2. 対話のリード: 常に相手のアイデアを肯定し、創造性を引き出す、具体的でポジティブな質問を一つだけ返してください。専門用語は避け、平易な言葉で対話をリードしてください。
-3. 効率性: 冗長な挨拶や前置きは不要です。常に本質的な対話に集中してください。
-## 入力情報
-【クライアント情報】
-- タイプ: ${clientInfo.type}
-- プロジェクトのゴール: ${clientInfo.goal}
-【会話履歴】
-${history.map(h => `${h.role}: ${h.content}`).join('\n')}
-user: ${newMessage}
-`;
-    
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const conversationalResult = await model.generateContent(conversationalPrompt);
-    const conversationalReply = await conversationalResult.response.text();
-
-    // --- 【処理B】構造化AIへの指示 (プロンプトv3.0適用) ---
-    const structuringPrompt = `
-# 指示書: 要件定義構造化AI
-## あなたの役割
-あなたは、自然言語での対話を分析し、構造化されたJSONデータに変換するエキスパートです。あなたの仕事は、システムのマスタープランを正確に更新することです。
-## あなたの行動原則
-1. 分析と特定: 以下の【会話履歴】と【マスタープラン】を分析し、会話内容がマスタープランのどの項目に該当するかを特定してください。
-2. 厳密な出力: 必ず、以下の【出力形式】に従って、JSONオブジェクトのみを回答してください。他のテキストは一切含めないでください。
-## 入力情報
-【会話履歴】
-- user: ${newMessage}
-【マスタープランの現状】
-${JSON.stringify(masterPlan, null, 2)}
-## 出力形式 (JSON)
-{
-  "thought_process": "なぜ、どの項目を更新すると判断したのか、その論理的な思考プロセスを簡潔に記述する。これは開発者のためのデバッグ情報である。",
-  "confidence": "今回の判断に対する確信度を High, Medium, Low のいずれかで示す。",
-  "updates": [ { "target_item": "更新対象のキーパス（例: 'agenda.1_purpose.items.scope'）", "update_action": "'REPLACE' または 'APPEND'", "updated_content": "抽出・要約した内容" } ],
-  "clarification_question": "もし confidence が Low の場合、AIDAが話すべき具体的な質問文を生成する。それ以外は null。"
-}
-## 例外処理
-- 更新すべき項目が見つからない場合は、updatesを空の配列 [] とし、thought_processにその理由を記載してください。
-`;
-
-    // 構造化AIの呼び出しとマスタープランの更新
-    const structuringResult = await genAI.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(structuringPrompt);
-    const textResponse = structuringResult.response.text();
-    
-    // AIの応答がJSON形式の場合のみ、マスタープランを更新
-    if (textResponse.trim().startsWith('{')) {
-        const structuredData = JSON.parse(textResponse);
-        console.log("Structuring AI thought:", structuredData.thought_process); // デバッグ用に思考プロセスをログ出力
-
-        if (structuredData.updates && structuredData.updates.length > 0) {
-            structuredData.updates.forEach(update => {
-                const { target_item, update_action, updated_content } = update;
-                const keys = target_item.split('.');
-                let current = masterPlan;
-                for (let i = 0; i < keys.length - 1; i++) {
-                    current = current[keys[i]];
-                }
-                const finalKey = keys[keys.length - 1];
-                if (update_action === 'APPEND' && Array.isArray(current[finalKey].content)) {
-                    current[finalKey].content.push(updated_content);
-                } else {
-                    current[finalKey].content = updated_content;
-                }
-                current[finalKey].status = "completed";
-            });
-             console.log("Master Plan Updated!");
-        }
+    const sessionId = request.headers.get('x-session-id');
+    if (!sessionId) {
+      return NextResponse.json({ error: "Session ID is required" }, { status: 400 });
     }
 
-    // --- 最終的な応答をUIに返す ---
+    let masterPlan = await kv.get(sessionId);
+    if (!masterPlan) {
+        masterPlan = JSON.parse(JSON.stringify(initialMasterPlan));
+    }
+
+    const body = await request.json();
+    const { history, newMessage, clientInfo = { type: 'startup', goal: '新規事業開発' } } = body;
+    
+    // ★変更点：プロンプトを1つに統合し、AIの役割を強化
+    const prompt = `
+# 指示書: 超有能AI秘書「AIDA」
+## あなたの役割
+あなたは、クライアントとの対話を通じて、要件定義書（マスタープラン）を完成させる超有能なAI秘書です。あなたは「自然な会話」と「厳密なデータ更新」を同時に行います。
+
+## 行動原則
+1.  **対話と質問:** 常に相手のアイデアを肯定し、創造性を引き出す、具体的でポジティブな質問を一つだけ返してください。専門用語は避け、平易な言葉で対話をリードしてください。
+2.  **マスタープランの更新:** これまでの会話と新しいメッセージを分析し、マスタープランのどの項目を更新すべきか判断してください。該当する箇所の 'content' を更新し、'status' を 'completed' に変更してください。
+3.  **厳密な出力:** あなたの応答は、必ず以下のJSON形式に従ってください。他のテキストは一切含めないでください。
+
+## 入力情報
+【クライアント情報】: ${JSON.stringify(clientInfo)}
+【これまでの会話履歴】: ${JSON.stringify(history)}
+【新しいメッセージ】: ${newMessage}
+【現在のマスタープラン】: ${JSON.stringify(masterPlan)}
+
+## 出力形式 (JSON)
+{
+  "reply": "クライアントへの自然な返信メッセージ（次の質問を含む）",
+  "updatedMasterPlan": {
+    // 上記の入力情報を踏まえて、内容を更新したマスタープランのオブジェクト全体
+  }
+}
+`;
+
+    // ★変更点：AIの呼び出しを1回に集約
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: "You are a helpful assistant designed to output JSON." },
+        { role: "user", content: prompt }
+      ],
+    });
+
+    const responseData = JSON.parse(response.choices[0].message.content);
+    
+    const conversationalReply = responseData.reply;
+    const updatedMasterPlan = responseData.updatedMasterPlan;
+
+    // 更新されたプランが存在する場合のみ、KVに保存
+    if (updatedMasterPlan) {
+      await kv.set(sessionId, updatedMasterPlan, { ex: 86400 });
+      masterPlan = updatedMasterPlan;
+    }
+    
     return NextResponse.json(
       { 
         reply: conversationalReply,
-        updatedAgenda: masterPlan.agenda // 更新されたマスタープランをUIに送る
+        updatedAgenda: masterPlan.agenda // フロントにはagenda部分だけを返す
       }, 
       { headers: corsHeaders }
     );
 
   } catch (error) {
     console.error("API Error:", error);
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
   }
 }
