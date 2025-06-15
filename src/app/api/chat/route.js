@@ -17,22 +17,33 @@ const corsHeaders = {
 };
 
 // 新しい会話が始まったときの「初期データ」のテンプレート
+// const initialMasterPlan = { ... }; の部分を、以下にまるごと置き換えてください
+
 const initialMasterPlan = {
-  "agenda": {
-    "1_purpose": {
-      "title": "全体像・目的", "status": "pending",
-      "items": { "background": { "label": "業務概要・背景", "status": "pending", "content": "" }, "goal": { "label": "目的・目標", "status": "pending", "content": "" }, "scope": { "label": "範囲", "status": "pending", "content": "" } }
-    },
-    "2_functional": {
-      "title": "機能要件", "status": "pending",
-      "items": { "feature_list": { "label": "機能一覧", "status": "pending", "content": [] }, "screen_req": { "label": "画面要件", "status": "pending", "content": "" } }
-    },
-    "3_non_functional": {
-        "title": "非機能要件", "status": "pending",
-        "items": { "usability": { "label": "ユーザビリティ", "status": "pending", "content": "" } }
+    "agenda": {
+      "1_purpose": {
+        "title": "全体像・目的", "status": "pending",
+        "items": { 
+          "background": { "title": "業務概要・背景", "status": "pending", "content": "" }, 
+          "goal": { "title": "目的・目標", "status": "pending", "content": "" }, 
+          "scope": { "title": "範囲", "status": "pending", "content": "" } 
+        }
+      },
+      "2_functional": {
+        "title": "機能要件", "status": "pending",
+        "items": { 
+          "feature_list": { "title": "機能一覧", "status": "pending", "content": [] }, 
+          "screen_req": { "title": "画面要件", "status": "pending", "content": "" } 
+        }
+      },
+      "3_non_functional": {
+          "title": "非機能要件", "status": "pending",
+          "items": { 
+            "usability": { "title": "ユーザビリティ", "status": "pending", "content": "" } 
+          }
+      }
     }
-  }
-};
+  };
 
 // --- ここまで設定 ---
 
