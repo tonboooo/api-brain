@@ -1,11 +1,12 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "ここにあなたのAPIキーを再度貼り付けてください";
+// ▼▼▼【重要】ここにあなたのGemini APIキーを再度貼り付けてください▼▼▼
+const GEMINI_API_KEY = "AIzaSyBZi0IoquwfGPgKayuf7oMXtE6jWNGiDQc"; 
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// CORS許可証の設定 (前回と同じ)
+// CORS許可証の設定
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -30,13 +31,15 @@ let masterPlan = {
       "title": "機能要件", "status": "pending",
       "items": {
         "feature_list": { "label": "機能一覧", "status": "pending", "content": [] },
-        "screen_req": { "label": "画面要件", "status": "pending", "content": "" }
+        "screen_req": { "label": "画面要件", "status": "pending", "content": "" },
+        "data_req": { "label": "データ要件", "status": "pending", "content": "" }
       }
     },
     "3_non_functional": {
         "title": "非機能要件", "status": "pending",
         "items": {
-            "usability": { "label": "ユーザビリティ", "status": "pending", "content": "" }
+            "usability": { "label": "ユーザビリティ", "status": "pending", "content": "" },
+            "security": { "label": "セキュリティ要件", "status": "pending", "content": "" }
         }
     }
   }
@@ -59,33 +62,31 @@ export async function POST(request) {
     const conversationalReply = await conversationalResult.response.text();
 
     // --- 【処理B】裏側で会話を分析し、マスタープランを更新 ---
-    const structuringPrompt = `あなたは情報を構造化する専門家です。以下の【会話履歴】と【マスタープラン】を分析し、会話内容に合致する【マスタープラン】の項目を1つだけ特定し、その'content'を更新するためのJSONオブジェクトを返してください。該当する項目がなければ "no_update" と返してください。\n\n【会話履歴】:\n- user: ${newMessage}\n\n【マスタープラン】:\n${JSON.stringify(masterPlan.agenda, null, 2)}`;
-    
-    // 構造化のためのAI呼び出しは、応答速度のために非同期で実行（エラーは握りつぶす）
-    // 本番では、より堅牢なエラーハンドリングが必要です
-    genAI.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(structuringPrompt)
-        .then(async (result) => {
-            const textResponse = result.response.text();
-            // "no_update" ではなく、JSON形式の応答が返ってきた場合のみ処理
-            if (textResponse.trim().startsWith('{')) {
-                const structuredData = JSON.parse(textResponse);
-                const { target_item, updated_content } = structuredData; // "1_purpose.items.scope" のような形式を想定
-                
-                // masterPlanを更新 (簡易的な実装)
-                const keys = target_item.split('.');
-                let current = masterPlan.agenda;
-                for (let i = 0; i < keys.length - 1; i++) {
-                    current = current[keys[i]];
-                }
-                current[keys[keys.length - 1]].content = updated_content;
-                current[keys[keys.length - 1]].status = "completed";
-                console.log("Master Plan Updated:", masterPlan.agenda);
-            }
-        }).catch(err => console.error("Structuring AI Error:", err));
+    const structuringPrompt = `あなたは情報を構造化する専門家です。以下の【会話履歴】と【マスタープラン】を分析し、会話内容に最も合致する【マスタープラン】の項目を1つだけ特定し、その項目の'content'を更新するためのJSONオブジェクト（{ "target_item": "...", "updated_content": "..." }）を返してください。該当する項目がなければ "no_update" と返してください。\n\n【会話履歴】:\n- user: ${newMessage}\n\n【マスタープラン】:\n${JSON.stringify(masterPlan.agenda, null, 2)}`;
 
+    // 構造化のためのAI呼び出し
+    const structuringResult = await genAI.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(structuringPrompt);
+    const textResponse = structuringResult.response.text();
+
+    if (textResponse.trim().startsWith('{')) {
+        const structuredData = JSON.parse(textResponse);
+        const { target_item, updated_content } = structuredData; 
+
+        const keys = target_item.split('.');
+        let current = masterPlan.agenda;
+        for (let i = 0; i < keys.length - 1; i++) {
+            current = current[keys[i]];
+        }
+        if(Array.isArray(current[keys[keys.length - 1]].content)) {
+            current[keys[keys.length - 1]].content.push(updated_content);
+        } else {
+            current[keys[keys.length - 1]].content = updated_content;
+        }
+        current[keys[keys.length - 1]].status = "completed";
+        console.log("Master Plan Updated:", masterPlan.agenda);
+    }
 
     // --- 最終的な応答をUIに返す ---
-    // 会話の返信と、更新されたマスタープランの両方を送る
     return NextResponse.json(
       { 
         reply: conversationalReply,
@@ -99,3 +100,4 @@ export async function POST(request) {
     return NextResponse.json({ error: "Something went wrong" }, { status: 500, headers: corsHeaders });
   }
 }
+
